@@ -92,14 +92,17 @@ function testModel(done) {
 
             const { username } = expectedData
             const query = { username }
+            // Retrieve all fields except _id
             const projection = {
               username: 1,
               password: 1,
               pass: 1,
-              _id: 0, // cannot exclude __v, so we'll remove it later
+              _id: 0
             }
 
-            TestModel.findOne(query, projection, callback)
+            // Tell mongoose to return a Plain Old JavaScript Object
+            // (POJO), by using `.lean()`
+            TestModel.findOne(query, projection, callback).lean()
 
           } else {
             expect(error).not.toBeNull()
@@ -133,9 +136,7 @@ function testModel(done) {
           // record had been created
 
           if (record) {
-            const retrievedData = record._doc;
-            // __v could not be removed from projection. Do that now.
-            delete retrievedData.__v;
+            const retrievedData = record;
 
             expect(retrievedData).toEqual(expectedData);
           }
