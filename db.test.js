@@ -18,9 +18,8 @@
  * before tests begin, and closed by a timeout, hopefully after
  * all the tests have been run.
  *
- * This script requires a Mongoose model, then attempts to create
- * loads a Mongoose connection to MongoDB and a
- * Mongoose model.
+ * This script attempts to create two MongoDB documents, but one
+ * has the wrong format, so the creation should fail.
  */
 
 const openDB = require('./db') // Promise resolves when db is open
@@ -33,20 +32,30 @@ const testData = [
     // data in the right format, so validation will succeed
     username: "username",
     password: "password",
-    pass: true
+    willBeCreated: true,
+    willPass: true
   },
   {
     // data in the wrong format, so no record will be created
     user: "user",
     password: "password",
-    pass: false
+    willBeCreated: false,
+    willPass: false
+  },
+  {
+    // data with extra properties, which will not be included
+    username: "with-added-prop",
+    password: "password",
+    prop: "value",
+    willBeCreated: true,
+    willPass: false
   }
 ]
 
 describe("Test connection to database", testDatabase)
 
 function testDatabase() {
-  test("Test that model is valid", testModel);
+  test("Test that model validates correctly", testModel);
 }
 
 function testModel(done) {
@@ -62,7 +71,7 @@ function testModel(done) {
   // The number of tests depends on whether the first model-
   // validation test succeeds or not
   const assertionCount = testData.reduce((count, data) => {
-    return count + 1 + (2 * data.pass)
+    return count + 1 + (2 * data.willBeCreated)
   }, 0)
   expect.assertions(assertionCount)
 
@@ -87,22 +96,15 @@ function testModel(done) {
         // correspond to the model schema
 
         try {
-          if (expectedData.pass) {
+          if (expectedData.willBeCreated) {
             expect(error).toBeNull()
 
             const { username } = expectedData
             const query = { username }
-            // Retrieve all fields except _id
-            const projection = {
-              username: 1,
-              password: 1,
-              pass: 1,
-              _id: 0
-            }
 
             // Tell mongoose to return a Plain Old JavaScript Object
             // (POJO), by using `.lean()`
-            TestModel.findOne(query, projection, callback).lean()
+            TestModel.findOne(query, callback).lean()
 
           } else {
             expect(error).not.toBeNull()
@@ -123,7 +125,7 @@ function testModel(done) {
       /**
        * Callback for the TestModel.findOne() call.
        */
-      function callback(error, record) {
+      function callback(error, retrievedData) {
         if (error) {
           // Not tested. How would this happen?
           result.error = error
@@ -131,14 +133,20 @@ function testModel(done) {
         }
 
         try {
-          expect(record).not.toBeNull()
+          expect(retrievedData).not.toBeNull()
           // It would be null if the username were wrong or if no
           // record had been created
 
-          if (record) {
-            const retrievedData = record;
+          if (retrievedData) {
+            // Delete properties added by Mongoose
+            delete retrievedData._id
+            delete retrievedData.__v
 
-            expect(retrievedData).toEqual(expectedData);
+            if (retrievedData.willPass) {
+              expect(retrievedData).toEqual(expectedData);
+            } else {
+              expect(retrievedData).not.toEqual(expectedData)
+            }
           }
         } catch (error) {
           result.error = error

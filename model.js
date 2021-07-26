@@ -5,9 +5,10 @@
 const mongoose = require('mongoose')
 
 const TestSchema = new mongoose.Schema({
-  username: { type: String, required: true},
+  username: { type: String, required: true },
   password: { type: String, required: true },
-  pass: { type: Boolean}
+  willBeCreated: { type: Boolean, required: true },
+  willPass: { type: Boolean, required: true }
 })
 
 module.exports = mongoose.model("Test", TestSchema)
